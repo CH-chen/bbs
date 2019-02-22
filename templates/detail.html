@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block page_main %}
+    <div class="article-detail">
+        <h1>{{ article.title }}</h1>
+        <p>{{ article.articledetail.content|safe }}</p>
+
+
+    </div>
+    <div class="poll clearfix">
+        <div id="div_digg">
+            <div class="diggit action">
+                <span class="diggnum" id="digg_count">{{ article.up_count }}</span>
+            </div>
+            <div class="buryit action">
+                <span class="burynum" id="bury_count">{{ article.down_count }}</span>
+            </div>
+            <div class="clear"></div>
+            <div class="diggword" id="digg_tips"></div>
+
+        </div>
+    </div>
+
+    <p>评论树</p>
+    <div class="comment_tree"></div>
+
+
+
+    <div class="info" article_id="{{ article.pk }}" username="{{ request.user.username }}"></div>
+    {% csrf_token %}
+    <p>评论列表:</p>
+    <ul class="comment-list">
+        {% for comment in comment_list %}
+        <li class="list-group-item">
+            <div><a href="">#{{ forloop.counter }}楼</a> &nbsp;&nbsp;
+                <a href="">{{ comment.user.username }}</a>&nbsp;&nbsp;
+                <span>{{ comment.create_time|date:"Y-m-d H:m" }}</span>
+                {% if request.user.username ==  comment.user.username  %}
+                <a href="" class="pull-right">删除</a>
+                    {% else %}
+                    <a class="pull-right reply" username="{{ comment.user.username }}" comment_pk="{{ comment.pk }}">回复</a>
+                {% endif %}
+
+            </div>
+        {% if comment.parent_comment_id %}
+        <div class="pid_info well">
+            <p>{{ comment.parent_comment.user.username }}:&nbsp;&nbsp;{{ comment.parent_comment.content }}</p>
+        </div>
+        {% endif %}
+            <div class="con"><p>{{ comment.content }}</p></div>
+        </li>
+    {% endfor %}
+    </ul>
+
+
+    {% if request.user.username %}
+        <div>
+            <p>发表评论</p>
+            <p>
+                昵称：<input type="text" class="author" disabled="disabled" size="50" value="{{ request.user.username }}">
+            </p>
+            <p>评论内容：</p>
+            <textarea name="" id="comment-content" cols="60" rows="10"></textarea>
+            <p>
+                <button class="comment-btn">提交评论</button>
+            </p>
+        </div>
+    {% else %}
+        <a href="/login/">登录</a>
+    {% endif %}
+
+    <script src="/static/up_down.js"></script>
+    <script>
+    $(function () {
+        //获取评论树信息
+        $.ajax({
+            url:"blog/comment_tree/"+'{{ article.pk }}/',
+            success:function (data) {
+                console.log(data);
+                $.each(data,function (index,comment_dict) {
+                    var s='<div class="comment_item" comment_id='+comment_dict.pk+'><span class="content">'+comment_dict.content+'</span></div>'
+                    if(comment_dict.parent_comment_id){
+                       //子评论
+                        pid=comment_dict.parent_comment_id;
+                        $("[comment_id="+pid+"]").append(s)
+                    }
+                    else{  //根评论
+
+                        $(".comment_tree").append(s)
+
+                    }
+                })
+            }
+        });
+
+
+
+
+
+
+
+
+        {#提交评论#}
+        var pid="";
+        $(".comment-btn").click(function () {
+            var article_id = $(".info").attr("article_id");
+            var content = $("#comment-content").val();
+            if (pid){
+                var index = content.indexOf("\n");
+                var content = content.slice(index+1);
+
+            }
+
+
+            $.ajax({
+                url:"/blog/comment/",
+                type:"post",
+                data:{
+                    article_id:article_id,
+                    content:content,
+                    pid:pid,
+                    csrfmiddlewaretoken:$("[name='csrfmiddlewaretoken']").val(),
+                },
+                    success:function (data) {
+
+                        var create_time = data.create_time;
+                        var content = data.content;
+                        var username = data.username;
+                        var li = '<li class="list-group-item"> <div><a href="">#{{ forloop.counter }}楼</a> &nbsp;&nbsp; <a href="">'+username+'</a>&nbsp;&nbsp; <span>'+create_time+'</span> <a href="" class="pull-right">删除</a> </div> <div class="con"><p>'+content+'</p></div> </li>'
+                        console.log("oooook");
+                        $(".comment-list").append(li);
+                        $("#comment-content").val("")
+                        pid="";
+
+
+                    }
+
+            })
+
+        });
+        {#回复按钮#}
+        $(".reply").click(function () {
+            var user_reply = "@"+$(this).attr("username")+"\n";
+
+            $("#comment-content").val(user_reply);
+            $("#comment-content").focus();
+
+            {#pid赋值;#}
+            pid = $(this).attr("comment_pk");
+
+
+
+
+        })
+
+
+
+    })
+    </script>
+
+{% endblock %}
